@@ -1,0 +1,8 @@
+{
+    "jwtPrivateKey":"health123",
+    "db":"mongodb://localhost/heath",
+    "cloud_name":"dhdo2w8cg",
+    "api_key":"146239248891891",
+    "api_secret":"EPcxw2wRztKNN5BISUGJMlUfD7E"
+
+}

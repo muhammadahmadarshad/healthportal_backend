@@ -1,0 +1,549 @@
+const {NutritionistValidate,Nutritionist}=require('../../models/Nutrionist/Nutritionist')
+const {Client} = require('../../models/Client')
+const bcrypt = require('bcryptjs')
+const {Education,validateEducation} =require('../../models/Nutrionist/Education')
+const {Experience,validateExperience}= require('../../models/Nutrionist/Experience')
+const {Speciality,validateSpeciality}=require('../../models/Nutrionist/Specialities')
+const {transporter}=require('../../middlewares/mail')
+module.exports={
+
+    signup:async (req,res)=>{
+
+        const {firstname,lastname,email,password,gender}=req.body 
+        const existed_person=await Nutritionist.findOne({email})
+        const is_client=await Client.findOne({email})
+        const {error}=NutritionistValidate({first_name:firstname,last_name:lastname,email,password})
+        if(error){
+
+            res.status(400).send({success:false,msg:error.details[0].message})
+        }
+        else if(existed_person){
+
+            res.status(400).send({success:false,msg:"Already Exists."})
+        }
+        else if(is_client){
+
+            res.status(400).send({success:false,msg:"Client Registered Account Cannot be a Nutritionist Account"})
+        }
+        else{
+
+        const salt= await bcrypt.genSalt(12)
+        const nutritionist= Nutritionist({
+                first_name:firstname,last_name:lastname,email,password,gender
+        })
+
+        nutritionist.password=await bcrypt.hash(password,salt)
+
+        await nutritionist.save()
+
+       await transporter.sendMail({
+            to:email,
+            from:"ranaahmad200358@gmail.com",
+            subject:"Your Account Created Successfully by Admin",
+            html:`
+                <div>
+                    <h5>Email: ${email}, Password: ${password}</h1> 
+                
+                </div>`
+        })
+
+        res.status(200).send({success:true,msg:"Nutritionist Account Created Successfully"})
+
+    }
+
+
+    },
+
+    login:async(req , res)=>{
+
+        const {email, password}=req.body
+        const is_client = await Nutritionist.findOne({email})
+
+        if(!is_client){
+            res.status(404).send({success:false,msg:"Invalid email or password"})
+        }
+
+        else if(is_client.blocked){
+      
+            res.status(400).send({success:false,msg:"Your Account has been blocked. Contact Admin."})
+        }
+
+        else{
+            const verify_password= await bcrypt.compare(password,is_client.password)
+            
+
+            if(verify_password){
+                  const  {_id,
+                    account_type,
+                    first_name,
+                    last_name,
+                    email
+                    }=is_client
+                res.status(200).send({token:is_client.generateToken({_id,
+                    account_type,
+                    first_name,
+                    last_name,
+                    email
+                    })})
+
+            }
+            else{
+
+                res.status(404).send({success:false,msg:"Invalid email or password"})
+            }
+
+        }
+
+
+    },
+    
+    update_account:async (req,res)=>{
+
+        console.log(req.body)
+        let {user}=req
+
+        if(user){
+
+
+            let {first_name,last_name,fee,phone}=req.body
+
+            nutritionist= await Nutritionist.findById(req.user._id)
+            nutritionist.first_name =first_name;
+            nutritionist.last_name=last_name
+            nutritionist.fee=fee;
+            nutritionist.phone=phone;
+
+            await nutritionist.save()
+            
+            res.send({success:true,msg:"Updated"})
+            
+        
+        }
+
+        else{
+            
+            res.status(404).send({success:false,msg:"Not Found.."})
+            
+
+        }
+
+    }
+    
+    ,
+
+
+
+
+    /* Add Education */
+
+    addEducation:async (req,res)=>{
+    const {to,from,title,type,institute}=req.body
+    if(!to || !from || !title || !type || !institute){
+
+        res.status(400).send({success:false,msg: "fields should not be empty."})
+    }
+
+    else{
+
+    let nutritionist= await Nutritionist.findById(req.user._id)
+    
+    const {error}= validateEducation({to,from,title,type,institute})
+    if(error){
+        res.status(400).send({msg:error.details[0].message})
+    }
+
+    else{
+
+        let existed= await Education.findOne({title,owner_id:req.user._id})
+
+        if(existed){
+
+            res.status(400).send({success:false ,msg:"Already Exists."})
+        }
+        else{
+
+            let education = new Education({
+                to,
+                type,
+                institute,
+                from,
+                title,
+                owner_id:req.user._id
+            })
+
+            let result= await education.save()
+
+            nutritionist.education.push(result._id)
+            await nutritionist.save()
+            res.status(200).send({success:true,msg:"Education Added."})
+        }
+    }
+    }}
+
+/* Delete Education */
+,
+deleteEducation:async(req,res)=>{
+
+    const nutritionist = await Nutritionist.findById(req.user._id)
+    const {id} = req.params
+    nutritionist.education=nutritionist.education.filter(edu=>edu!=id)
+    await nutritionist.save()
+    await Education.deleteOne({_id:id})
+    res.status(200).send({msg:"Deleted Successfully"})
+    
+},
+/*get Education */
+getEducation:async(req, res)=>{
+    result=  await Nutritionist.findById(req.user._id,).select('education').populate('education')
+    res.status(200).send(result)
+},
+
+updateEducation:async(req,res)=>{
+  let  {
+        to,
+        type,
+        institute,
+        from,
+        title,
+    }=req.body
+
+    let {id}= req.params
+
+
+    let education =await Education.findOne({_id:id,owner_id:req.user._id})
+
+  if(education){
+
+     let {error}  =validateEducation({to,type,institute,from,title})
+
+     if(error)
+        {   
+            res.status(400).send({success:false,msg:error.details[0].message})
+        }
+
+    else {
+
+        education.to=to;
+        education.from=from;
+        education.type=type;
+        education.institute=institute;
+        education.title= title
+
+        existed= await Education.findOne({owner_id:req.user._id,to,from,type,institute,title,})
+
+        if(!existed)
+        {
+        await education.save()
+        res.send({success:true,msg:"Successfully Updated"})
+        }   
+        else{
+            res.status(400).send({success:false,msg:'Already Exist..'})
+        }
+    }
+
+    
+
+
+    }
+    else
+
+    res.status(400).send({success:false,msg:"does not exists."})
+},
+
+
+/*add experience*/
+addExperience:async (req,res)=>{
+
+    let {company,from , to , designation, description} = req.body
+
+    if(!company || !from || !to || !designation)
+    {   
+        res.status(400).send({success:false,msg:"Required fields should not be empty.."})
+    }
+    else
+        {
+
+            let {error} = validateExperience({company,from, to ,designation,description})
+
+            if(error)
+                {
+                    res.status(400).send({success:false,msg:error.details[0].message})
+                }
+            else {
+
+                experience = new Experience({
+
+                    company,to,from,designation,description,owner_id:req.user._id
+
+                })
+
+                experience_existed= await Experience.findOne({designation,to,company,description,from,owner_id:req.user._id})
+            if(experience_existed){
+
+                res.status(400).send({success:false,msg:"Already Added.."})
+            }
+            else{
+            result= await experience.save()
+
+            nutritionist =await Nutritionist.findOne({_id:req.user._id}).select('experience')
+            nutritionist.experience.unshift(result._id)
+            
+            await nutritionist.save()
+
+            res.send({success:true,msg:'Experience added successfully.'})
+            }}
+        }
+},
+
+
+/*Delete Experience*/
+
+deleteExperience:async (req, res)=>{
+
+    let {id} = req.params
+    experience = await Experience.findByIdAndDelete(id)
+    nutritionist = await Nutritionist.findById(req.user._id).select('experience')
+    nutritionist.experience = nutritionist.experience.filter(ex=>ex!=id)
+    await nutritionist.save()
+    res.send(experience)
+},
+
+
+/*Update Experience*/
+
+updateExperience:async (req,res)=>{
+
+    const {company,from , to , designation, description} = req.body
+    const {id} = req.params
+    console.log( req.body)
+    const belongs = await Experience.findOne({_id:id,owner_id:req.user._id})
+    const {error} = validateExperience({company ,from ,to ,designation, description})
+    if(!belongs){
+        res.status(400).send({success:false,msg:"Bad request."})
+    }
+
+    else if(error)
+    {
+        res.status().send({success:false,msg:error.details[0].message})
+
+
+    }
+    else{
+        experience = await Experience.findById(id)
+        
+        experience.company=company
+        experience.from=from
+        experience.to=to
+        experience.description=description
+        experience.designation=designation
+
+        existed= await Experience.findOne({owner_id:req.user._id,designation,from,to,description,designation})
+      
+        if(existed){
+            res.status(400).send({success:false,msg:"Already Existed.."})
+
+        }
+        else{
+        await experience.save()
+        res.status(200).send({success:true,msg:"Successfully updated."})
+        }
+    
+    }
+
+},
+
+/*Add speciality */
+
+addSpeciality:async(req, res)=>{
+
+    let {category,description}= req.body
+    console.log(req.body)
+   let {error} = validateSpeciality({category,description:description})
+   let nutritionist= await Nutritionist.findById(req.user._id).select('specialities')
+   if(error){
+        res.status(400).send({success:false,msg:error.details[0].message})
+   }
+
+   else{
+        let matched= await  Speciality.findOne({owner_id:req.user._id,category})
+        console.log(matched)
+        if(!matched)
+        {
+           
+            speciality =await new Speciality({description,category,owner_id:req.user._id}).save()
+       
+            nutritionist.specialities.unshift(speciality._id) 
+            await nutritionist.save()
+
+            res.status(200).send({success:true,msg: "Successfully added"})
+        }
+        else{
+
+            res.status(400).send({success:false,msg:'Already Added.'})
+
+        }
+
+        
+   }
+},
+
+/*Delete Speciality*/
+
+deleteSpeciality:async(req,res)=>{
+
+    const {id} = req.params
+    let nutritionist =await Nutritionist.findById(req.user._id).select('specialities')
+    nutritionist.specialities= nutritionist.specialities.filter(sp=>sp!=id)
+    await nutritionist.save()
+    res.send(await Speciality.findByIdAndDelete(id))
+
+},
+
+/*Update Speciality*/
+updateSpeciality:async(req , res)=>{
+
+    const {id} = req.params
+    const {description,category} = req.body
+    
+  
+    if(req.user){
+        let speciality= await Speciality.findById(id)
+        const {error} = validateSpeciality({description,category})
+        if(error){
+
+            res.status(400).send({success:false,msg:error.details[0].message})
+        }
+
+        else        
+            {
+                
+                speciality.description=description;
+                speciality.category=category
+                existed= await Speciality.findOne({owner_id:req.user._id,category,description})
+                if(!existed)
+                {
+                await speciality.save()                
+                res.status(200).send({success:true,msg:"Updated Successfully."})
+                }else
+                res.status(400).send({success:false,msg:"Already Existed..."})
+    
+            }
+
+}
+
+else{
+
+    res.status(401).send({success:false,msg:"Unauthorized"})
+}
+
+
+},
+
+get_all:async (req,res)=>{
+
+    let page= parseInt(req.params.page)
+    let page_size=10;
+    total_results= await Nutritionist.countDocuments()
+    if(total_results>0){
+    data = await Nutritionist.find().skip((page-1)*page_size).limit(page_size)    
+    res.send({list:data,total_results})
+    }
+
+    else
+        res.status(404).send('not found.')
+
+}, 
+
+block_account:async(req,res)=>{
+
+    if(req.admin){
+        
+       let  {_id} = req.params;
+       
+       nutritionist= await Nutritionist.findById(_id)
+
+       nutritionist.blocked=!nutritionist.blocked;
+
+       await nutritionist.save()
+       
+       res.send("Success")
+
+    }
+
+    else{
+
+        res.status(401).send('Unauthorized')
+    }
+    },
+
+me:async (req,res)=>{
+
+    if(req.user){
+
+        let {_id}= req.user
+
+        profile = await Nutritionist.findById(_id).populate('specialities').populate('experience').populate('education')
+    
+        res.send(profile)
+    
+    }
+    else{
+        console.log('hello')
+        res.status(401).send('UnAuthorized....')
+    }
+
+    
+
+}
+,
+find:async(req,res)=>{
+    
+    let nutritionists=await Speciality.find({category:req.body.query}).populate('owner_id')
+    
+    if(nutritionists.length!==0)
+    {
+        res.send(nutritionists)
+    }
+    else{
+        res.status(404).send('Not Found')
+    }
+
+},
+
+
+find_by_id:async (req,res)=>{
+    try{
+    let nutritionist= await Nutritionist.findById(req.params._id).populate('education').populate('experience').populate('specialities')
+   
+    if(nutritionist){
+
+        res.send(nutritionist)
+    }
+
+    else {
+
+        res.status(404).send("Not Found.")
+    }}
+    catch(err){
+        res.status(404).send("Not Found.")
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
