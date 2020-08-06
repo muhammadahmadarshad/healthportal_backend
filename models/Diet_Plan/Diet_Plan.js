@@ -22,7 +22,14 @@ const dietPlan= new mongoose.Schema({
     created_by:{type:mongoose.Schema.Types.ObjectId,ref:'nutritionist'},
 
     start_date:{type:Date,required:true},
-},{timestamps:true})  
+    end_date:{type:Date,required:true}
+},{timestamps:true})
+
+dietPlan.index({end_date:1},{expiresAfterSeconds:0})
+
+
+
+
 
 exports.diet_plan_validate=(diet_plan)=>{
  const end_date= moment()

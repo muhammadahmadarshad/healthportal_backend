@@ -77,26 +77,26 @@ module.exports={
         @Account Verification.
     
     */
-    VerifyToken : async (req,res)=>{
-        const   {token} = req.params
+    VerifyCode : async (req,res)=>{
     
-            const   client= await Client.findOne({verify_token:token})
-            if(client)
-            {   
-                if(client.isVerified)
-                {
-                    res.status(400).send("Already Verified.")
-                }
-                else{
-                    client.isVerified = true;
-                    await client.save()
-                    res.status(200).send({msg:'Account has been verified.'})
-                }
-        
+            let {opt,email}=req.body
+
+            let valid = await pswdReset.findOneAndDelete({verification_code:opt,email})
+            if(valid){
+
+
+                res.send({success:true})
             }
-            else
-                res.status(400).send('Bad Request.')
-        
+
+            else{
+
+
+                res.status(404).send("Not Found")
+            }
+
+
+
+
         },
 
         /*
@@ -108,17 +108,20 @@ module.exports={
         const {body}=req;  
         const client = await Client.findOne({email:body.email})
         if(client){
-            const findPswd= await pswdReset.findOneAndRemove({user_id:client._id})
+            const findPswd= await pswdReset.findOneAndRemove({email:client.email})
             const pswd= new pswdReset({
-                user_id:client._id,
+                email:client.email,
                 verification_code:Math.floor(100000+Math.random()*9000)
             })
-        await transporter.sendMail({
+       await transporter.sendMail({
             to:client.email,
             from:"Health_portal.com",
             subject:"Password Reset Verification Code.",
             html:`<h1>${pswd.verification_code}</h1>`
         })
+
+
+       
 
         const result =await pswd.save()
         //msg:"Check Your Email for Verification with in 5 mintues."
@@ -132,27 +135,20 @@ module.exports={
 
     ResetPassword:async (req,res)=>{
 
-        const { body }=req;
-        const client = await Client.findOne({email:body.email})
-        console.log(client)
+        const {email,password }=req.body;
+        const client = await Client.findOne({email})
         if(!client){
             res.status(400).send("Invalid..")
         }
-        const resetCode=await pswdReset.findOneAndRemove({user_id:client._id,verification_code:body.verifycode})
-        if(!resetCode){
-            console.log(resetCode)
-            res.status(400).send("Invalid or code expired")
-        }
-        else{
-            console.log(resetCode)
-            if(body.verifycode===resetCode.verification_code)
-            {
+       
+      
+         else {
+       
+          
                 let salt=await bcrypt.genSalt(10)
-                client.password= await bcrypt.hash(body.password,salt)
+                client.password= await bcrypt.hash(password,salt)
                 res.send(await client.save())
-            }
-            else
-            res.status(404).send("Invalid Verification Code.")
+    
 
         }
 

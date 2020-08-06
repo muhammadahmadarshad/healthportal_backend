@@ -1,6 +1,9 @@
 const router = require('express').Router()
 const bcrypt= require('bcryptjs')
 const {AdminValidate,Admin} = require('../../models/Admin/Admin') 
+const { pswdReset } = require('../../models/resetPassword')
+const { transporter } = require('../../middlewares/mail')
+const { auth } = require('../../middlewares/auth')
 
 
 router.post('/make_new_admin',async (req,res)=>{
@@ -57,6 +60,114 @@ router.post('/login',async(req,res)=>{
 
         res.status(404).send({message:"Invalid Email or password"})
     }
+
+})
+
+
+
+router.post('/resetPassword',async (req,res)=>{
+
+    const {email,password }=req.body;
+    const client = await Admin.findOne({email})
+    if(!client){
+        res.status(400).send("Invalid..")
+    }
+   
+  
+     else {
+   
+      
+            let salt=await bcrypt.genSalt(10)
+            client.password= await bcrypt.hash(password,salt)
+            res.send(await client.save())
+    }
+
+})
+
+
+router.post('/forgotPassword', async (req,res)=>{
+
+    const {body}=req;  
+    const client = await Admin.findOne({email:body.email})
+    console.log(client)
+    if(client){
+        const findPswd= await pswdReset.findOneAndRemove({email:client.email})
+        const pswd= new pswdReset({
+            email:client.email,
+            verification_code:Math.floor(100000+Math.random()*9000)
+        })
+   await transporter.sendMail({
+        to:client.email,
+        from:"Health_portal.com",
+        subject:"Password Reset Verification Code.",
+        html:`<h1>${pswd.verification_code}</h1>`
+    })
+
+
+   
+
+    const result =await pswd.save()
+    //msg:"Check Your Email for Verification with in 5 mintues."
+    res.send(result)
+    }
+    else{
+        res.status(400).send("Invalid Email Address.")
+    }
+})
+
+router.post('/verify_opt' ,async (req,res)=>{
+    
+    let {opt,email}=req.body
+
+    let valid = await pswdReset.findOneAndDelete({verification_code:opt,email})
+    if(valid){
+
+
+        res.send({success:true})
+    }
+
+    else{
+
+
+        res.status(404).send("Not Found")
+    }
+
+
+
+
+})
+
+
+router.put('/change_password',auth,async(req,res)=>{
+
+    if(req.admin){
+
+        let {password,new_password}=req.body
+        client = await Admin.findById(req.admin._id)
+        let verify= await bcrypt.compare(password,client.password)
+       
+        
+        if(verify){
+            salt = await bcrypt.genSalt(10)
+            client.password= await bcrypt.hash(new_password,salt)
+            await client.save()
+
+            res.send({msg:"Successfully Updated."})
+
+        }
+        else{
+
+            res.status(400).send({msg:"Invalid Password"})
+        }
+
+    }
+
+    else {
+
+        res.status(401).send("UnAuthorized....")
+    }
+
+
 
 })
 

@@ -10,7 +10,8 @@ const Schema= mongoose.Schema({
     image:{type:mongoose.Schema.Types.Mixed,required:true
     },
     facts:{type:String,required:true},
-    brand:{type:String,required:true}
+    brand:{type:String,required:true},
+    featured:{type:Boolean,default:false}
 },{timestamps:true})
 
 

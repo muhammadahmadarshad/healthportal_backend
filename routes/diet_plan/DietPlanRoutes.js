@@ -1,8 +1,7 @@
 const {Client} = require('../../models/Client')
 const {DietPlan,diet_plan_validate} = require('../../models/Diet_Plan/Diet_Plan')
 const {DietPlanItem,diet_plan_item_validate} = require('../../models/Diet_Plan/Diet_Plan_Item')
-const {Food} = require('../../models/foods/foods')
-const {Serving} = require('../../models/foods/foodServing')
+
 const moment = require('moment')
 const { DietPlanOrder } = require('../../models/Diet_Plan/DietPlanOrder')
 const {Nutritionist} =require('../../models/Nutrionist/Nutritionist')
@@ -12,15 +11,31 @@ module.exports = {
 /*Make Diet Plan*/
     make_diet_plan:async(req,res)=>{
     const client = await Client.findById(req.client._id)
+    let diet_plan 
+    
+    try{
+
+        diet_plan=await DietPlan.findById({owner_id:client._id})
+    }
+    catch(err){
+
+        diet_plan=false
+    }
+    
+    
     const {title,duration,start_date}= req.body
  
     let data={
         title,
         start_date,
         duration,
-        owner_id:req.client._id
+        owner_id:req.client._id,
+        end_date:moment(start_date).add(duration,'days')
     }
-    if(client['diet_plan'])
+
+
+
+    if(diet_plan)
     {
         res.status(400).send({message:"Already Exists"})
     }
@@ -64,7 +79,7 @@ add_meal:async (req,res)=>{
         res.status(400).send(error.details[0])
         else{
             existed_item= await DietPlanItem.findOne({plan_id:diet_plan._id,time_to_eat,food})
-            console.log(existed_item)
+           
             if(!existed_item){
             diet_plan_item = await new DietPlanItem({plan_id:diet_plan._id,meal,time_to_eat,food}).save()
             diet_plan.items.push(diet_plan_item._id)
@@ -213,7 +228,7 @@ else{
 }
 
 else if(user._id){
-console.log(req.body)
+
 const {id}= req.params
 const {client_id}=req.body
 const diet_plan = await DietPlan.findOne({owner_id:client_id,created_by:user._id})
@@ -567,7 +582,7 @@ get_complete_report:async (req,res)=>{
 make_diet_plan_nutritionist:async(req,res)=>{
     
    if(req.user){
-    console.log(req.body)
+    
     
     const {title,duration,start_date,client_id,order_id}= req.body 
     const client = await Client.findById(client_id)
@@ -577,7 +592,8 @@ make_diet_plan_nutritionist:async(req,res)=>{
         title,
         start_date,
         duration,
-        owner_id:client._id+""
+        owner_id:client._id+"",
+        
 
         }
         const {error}= diet_plan_validate(data);
@@ -587,7 +603,7 @@ make_diet_plan_nutritionist:async(req,res)=>{
         }
 
         else{
-         diet_plan=await  new DietPlan({...data,created_by :req.user._id}).save()
+         diet_plan=await  new DietPlan({...data,end_date:moment(start_date).add(duration,'days'),created_by :req.user._id}).save()
          client.diet_plan=diet_plan._id
          await client.save()
          order.status="Diet Plan Created"
@@ -736,7 +752,7 @@ get_clients:async (req,res)=>{
 
     if(req.user._id){
 
-    let clients= await DietPlan.find({created_by:req.user._id}).populate('owner_id').select('owner_id')
+    let clients= await DietPlan.find({created_by:req.user._id}).populate('owner_id').select('owner_id title')
         
     res.send(clients)
 

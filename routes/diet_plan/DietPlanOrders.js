@@ -72,34 +72,45 @@ router.post('/make_new_order',auth,async(req,res)=>{
 
 
 router.get('/orders/:page',auth,async(req,res)=>{
-
-    let {user}=req
-   
     let page = parseInt(req.params.page)
     let page_size=12
+    let {user,admin}=req
+    if(user){
     let total_results = await DietPlanOrder.find({nutrtionist:user._id,status:"Pending"}).countDocuments()
     let orders= await DietPlanOrder.find({nutrtionist:user._id,status:"Pending"}).populate('order_by').skip((page-1)*page_size).limit(page_size)
-   
-   
     if(orders.length>0){
         res.send({total_results,orders,})
-
-
     }
 
     else {
 
         res.status(404).send("Not Found")
+    }}
+
+
+    else if(admin){
+
+        
+            let total_results = await DietPlanOrder.find().countDocuments()
+            let orders= await DietPlanOrder.find().sort({createdAt:-1}).populate('order_by').populate('nutrtionist').skip((page-1)*page_size).limit(page_size)
+            if(orders.length>0){
+                res.send({total_results,orders,})
+            }
+        
+            else {
+        
+                res.status(404).send("Not Found")
+            }
     }
 })
 
 
 router.get('/order_details/:id',auth,async (req,res)=>{
+       
+    if(req.user ){
+    try{
 
-    console.log(req.params.id)
-        try{
-
-        order= await DietPlanOrder.findOne({_id:req.params.id,nutrtionist:req.user._id}).populate('order_by')
+        order= await DietPlanOrder.findOne({_id:req.params.id,nutrtionist:req.user._id}).populate('order_by').populate('nutrtionist')
 
         if(order){
             res.send(order)
@@ -118,8 +129,40 @@ router.get('/order_details/:id',auth,async (req,res)=>{
             res.status(404).send("Not Found")
         }
 
+    }
+
+    else {
+
+       try {    
+        order= await DietPlanOrder.findOne({_id:req.params.id}).populate('order_by').populate('nutrtionist')
+
+        if(order){
+            res.send(order)
+
+        }
+        else {
+
+            res.status(404).send("Not Found")
+        }
 
 
+        }
+        catch(err){
+
+
+            res.status(404).send("Not Found")
+        }
+
+    }
+
+})
+
+
+
+router.get('/count_pending_orders',auth,async (req,res)=>{
+  
+   let count= await DietPlanOrder.find({status:'Pending',nutrtionist:req.user._id}).countDocuments()
+    res.send({count})
 })
 
 module.exports=router
