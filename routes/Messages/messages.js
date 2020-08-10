@@ -137,7 +137,7 @@ Router.get('/message_by_id/:id',auth,async (req,res)=>{
         }
     }
 
-    if(client){
+   else if(client){
         try{ let message=  await Queries.findById(req.params.id).populate('nutritionist').populate('author_id')
          
          if(message){
@@ -155,6 +155,11 @@ Router.get('/message_by_id/:id',auth,async (req,res)=>{
  
              res.status(404).send('Not Found')
          }
+     }
+
+     else {
+
+        res.status(404).send('Not Found')
      }
 
 

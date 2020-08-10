@@ -1,7 +1,7 @@
 const mongoose= require('mongoose')
 
 const joi =require('joi')
-const { boolean } = require('joi')
+
 
 let DietPlanOrder= new mongoose.Schema({
 
@@ -24,6 +24,7 @@ let DietPlanOrder= new mongoose.Schema({
     }
 },{timestamps:true})
 
+DietPlanOrder.index({createdAt:1},{expires:43800})
 
 exports.validateDietPlanOrder= (item)=>{
 

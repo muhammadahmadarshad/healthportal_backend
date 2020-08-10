@@ -75,7 +75,7 @@ router.delete('/delete_product/:id',auth,async (req,res)=>{
 
 router.get('/get_all_products/:page',async(req,res)=>{
     
-    const page_size = 9 
+    const page_size = 8 
     const page = (parseInt(req.params.page)-1)*page_size
     let total_results= await Product.countDocuments()
     let products= await Product.find().skip(page).limit(page_size)

@@ -14,6 +14,18 @@ router.post('/make_new_order',auth,async(req,res)=>{
         let {_id}=client
         let {purpose,description,token,nutri_id,phone}=req.body
         let nutritionist= await Nutritionist.findById(nutri_id)
+        let order= await DietPlanOrder.findOne({purpose,
+            nutrtionist:nutritionist._id,
+            order_by:_id,
+            status:'Pending',
+            phone})
+
+         if(order) 
+         {
+            res.status(400).send({success:false,msg:"You have already purchased."})
+         } 
+         else
+         { 
         let Diet_Plan_Order= new DietPlanOrder({
             purpose,
             description,
@@ -58,7 +70,7 @@ router.post('/make_new_order',auth,async(req,res)=>{
     }
 
 
-}
+}}
 
 
     else{
