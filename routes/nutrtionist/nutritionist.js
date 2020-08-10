@@ -2,7 +2,7 @@ const router = require('express').Router()
 const {
         deleteSpeciality,deleteExperience,signup,login,addEducation,deleteEducation,
         updateExperience,getEducation,updateEducation,addExperience,addSpeciality,updateSpeciality,get_all,block_account,me,find, find_by_id, update_account,
-        ForgotPassword,ResetPassword,VerifyCode, ChangePassword
+        ForgotPassword,ResetPassword,VerifyCode, ChangePassword, get_complete_report
     }   = require('./nutritionistRoutes')
 const {auth}= require('../../middlewares/auth')
 
@@ -18,6 +18,7 @@ router.post("/forgotPassword",ForgotPassword)
 router.post("/resetPassword",ResetPassword)
 router.post('/verify_opt',VerifyCode)
 router.get('/find_by_id/:_id',find_by_id)
+router.get('/diet_plan_report/:id',auth,get_complete_report)
 
 /*Education*/
 router.post('/addEducation',auth,addEducation)

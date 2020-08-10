@@ -1,6 +1,6 @@
 {
     "jwtPrivateKey":"health123",
-    "db":"mongodb://localhost/heath",
+    "db":"mongodb+srv://Ahmad:Ahmad78965@healthportal.copnl.mongodb.net/health?retryWrites=true&w=majority",
     "cloud_name":"dhdo2w8cg",
     "api_key":"146239248891891",
     "api_secret":"EPcxw2wRztKNN5BISUGJMlUfD7E"

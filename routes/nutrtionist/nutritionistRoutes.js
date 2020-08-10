@@ -6,6 +6,10 @@ const {Experience,validateExperience}= require('../../models/Nutrionist/Experien
 const {Speciality,validateSpeciality}=require('../../models/Nutrionist/Specialities')
 const {transporter}=require('../../middlewares/mail')
 const { pswdReset } = require('../../models/resetPassword')
+const {DietPlan} = require('../../models/Diet_Plan/Diet_Plan')
+const {DietPlanItem} = require('../../models/Diet_Plan/Diet_Plan_Item')
+const moment = require('moment')
+
 module.exports={
 
     signup:async (req,res)=>{
@@ -58,6 +62,7 @@ module.exports={
     login:async(req , res)=>{
 
         const {email, password}=req.body
+   
         const is_client = await Nutritionist.findOne({email})
 
         if(!is_client){
@@ -533,10 +538,23 @@ me:async (req,res)=>{
 find:async(req,res)=>{
     
     let nutritionists=await Speciality.find({category:req.body.query}).populate('owner_id')
-    
-    if(nutritionists.length!==0)
+    nutritionist=[]
+
+    for (let i=0;i<nutritionists.length;i++){
+
+        let count= await DietPlan.find({created_by:nutritionists[i]._id}).countDocuments()
+
+        if(count<10){
+            nutritionist.push(nutritionists[i])
+
+        }
+
+
+
+    }
+    if(nutritionist.length!==0)
     {
-        res.send(nutritionists)
+        res.send(nutritionist)
     }
     else{
         res.status(404).send('Not Found')
@@ -631,6 +649,184 @@ VerifyCode : async (req,res)=>{
     }
 
 
+
+
+},
+get_complete_report:async (req,res)=>{
+    if(req.user){
+        try{
+        let {id}=req.params
+       
+        let diet_plan= await DietPlan.findOne({created_by:req.user._id,_id:id})
+        if(diet_plan){
+        let start_date=moment(diet_plan.start_date)
+            start_date.hours(00).minutes(00)
+            
+        let end_date=moment(diet_plan.start_date)
+            end_date.hours(23).minutes(59)
+        
+            let count_calories=[]
+           
+        for(let i=0;i<diet_plan.duration;i++){
+        let count = await DietPlanItem.aggregate([
+            {$match:
+                {
+                   $and:[{time_to_eat:{$gte:new Date(start_date.toISOString()),$lte: new Date(end_date.toISOString())}},{taken:true},{plan_id:diet_plan._id}]
+                }},{
+            $lookup:{ from: 'foods', localField: 'food', foreignField: '_id', as: 'food' }},
+            {$unwind:{path:'$food',
+            preserveNullAndEmptyArrays: true}},
+            {$lookup:{
+                    from:'servings',
+                    localField:'food.serving',
+                    foreignField:'_id',
+                    as:'food.serving'
+            }},
+            {$unwind:{path:'$food.serving',
+            preserveNullAndEmptyArrays: true}}, 
+            {$group:{
+                _id:null,
+                protein:{$sum:'$food.serving.protein'},
+                sugar:{$sum:'$food.serving.sugar'},
+                calcium:{$sum:"$food.serving.calcium"},
+                carbohydrate:{$sum:"$food.serving.carbohydrate"},
+                vitamin_c:{$sum:"$food.serving.vitamin_c"},
+                fat:{$sum:"$food.serving.fat"},
+                calories:{$sum:"$food.serving.calories"}
+                
+            }} ,
+            {$unwind:{path:'$group',
+            preserveNullAndEmptyArrays: true}},      
+        ])
+        count_calories.push({...count[0],time:start_date.format('DD-MM-YYYY')})
+        start_date.add(1,'day')
+        end_date.add(1,'day')
+        
+    }
+
+    start_date= moment()
+    start_date.hours(00).minutes(00).seconds(00)
+    end_date= moment()
+    end_date.hours(23).minutes(59).seconds(59)
+
+    count= await DietPlanItem.aggregate([
+        {$match:
+         {$and:[  
+              {
+                  time_to_eat:{$gte:new Date(start_date.toISOString()),$lte:new Date(end_date.toISOString())}
+                },
+                {
+                   taken:true 
+                }
+         
+        
+        ]
+        }
+        }
+        ,{$lookup:{
+
+            from:'foods',
+            localField:'food',
+            foreignField:'_id',
+            as:'food'
+        }},
+        {$unwind:{path:'$food',preserveNullAndEmptyArrays:true}},
+
+        {$lookup:{
+            from:'servings',
+            localField:"food.serving",
+            foreignField:"_id",
+            as:'food.serving'
+        }},
+        {$unwind:{path:"$food.serving",preserveNullAndEmptyArrays:true}},
+
+        {
+            $group:{
+                _id:'$meal',
+                time_to_eat:{$first:'$time_to_eat'},
+                protein:{$sum:"$food.serving.protein"},
+                sugar:{$sum:'$food.serving.sugar'},
+                calcium:{$sum:"$food.serving.calcium"},
+                carbohydrate:{$sum:"$food.serving.carbohydrate"},
+                vitamin_c:{$sum:"$food.serving.vitamin_c"},
+                fat:{$sum:"$food.serving.fat"},
+                calories:{$sum:"$food.serving.calories"},
+                fiber:{$sum:'$food.serving.fiber'}
+            }
+        },{$sort:{_id:1}}
+    ])   
+
+
+
+    start_date=moment()
+            start_date.hours(00).minutes(00)
+            
+            start_date.subtract(6,'day')
+            
+         end_date=moment()
+            end_date.hours(23).minutes(59)
+            end_date.subtract(6,'day')
+            let week_report=[]
+           
+        for(let i=0;i<=6;i++){
+        let count = await DietPlanItem.aggregate([
+            {$match:
+                {
+                   $and:[{time_to_eat:{$gte:new Date(start_date.toISOString()),$lte: new Date(end_date.toISOString())}},{taken:true},{plan_id:diet_plan['_id']}]
+                }},{
+            $lookup:{ from: 'foods', localField: 'food', foreignField: '_id', as: 'food' }},
+            {$unwind:{path:'$food',
+            preserveNullAndEmptyArrays: true}},
+            {$lookup:{
+                    from:'servings',
+                    localField:'food.serving',
+                    foreignField:'_id',
+                    as:'food.serving'
+            }},
+            {$unwind:{path:'$food.serving',
+            preserveNullAndEmptyArrays: true}}, 
+            {$group:{
+                _id:null,
+                protein:{$sum:'$food.serving.protein'},
+                sugar:{$sum:'$food.serving.sugar'},
+                calcium:{$sum:"$food.serving.calcium"},
+                carbohydrate:{$sum:"$food.serving.carbohydrate"},
+                vitamin_c:{$sum:"$food.serving.vitamin_c"},
+                fat:{$sum:"$food.serving.fat"},
+                calories:{$sum:"$food.serving.calories"}
+                
+            }} ,
+            {$unwind:{path:'$group',
+            preserveNullAndEmptyArrays: true}},      
+        ])
+        week_report.push({...count[0],time:start_date.calendar(null,{
+            lastDay : '[Yesterday]',
+            sameDay : '[Today]',
+            nextDay : '[Tomorrow]',
+            lastWeek : '[Last] dddd',
+            nextWeek : 'dddd',
+            sameElse : 'L'
+        })})
+        start_date.add(1,'day')
+        end_date.add(1,'day')
+        
+    }
+        res.send({plan_report:count_calories,daily_report:count,week_report})
+    
+}
+else {
+    res.status(404).send({msg:"Diet Plan Not Found.."})
+
+}
+    
+    }
+        catch(err){
+            res.status(404).send({msg:"Diet Plan Not Found.."})
+        }
+    }
+
+    else 
+    res.status(404).send({msg:"Diet Plan Not Found.."})
 
 
 }

@@ -87,17 +87,24 @@ router.get('/get_all_products/:page',async(req,res)=>{
 router.get('/product_details/:id',async(req,res)=>{
 
     const {id}=req.params
+    try{
+        let product = await Product.findById(id)
+        if(product){
+    
+            res.send(product)
+    
+        }
+    
+        else
+        res.status(404).send({message:"Not Found"}) 
 
-    let product = await Product.findById(id)
-    console.log(product)
-    if(product){
+    }
+    catch(err){
 
-        res.send(product)
+        res.status(404).send({message:"Not Found"})
 
     }
 
-    else
-        res.statusCode(404).send({message:"Not Found"})
 
 })
 
@@ -115,14 +122,13 @@ router.put('/updateProduct/:id',auth,multer.upload,async (req,res)=>{
             qty,
             facts,
             description,
-            brand}=req.body
+            brand,featured}=req.body
 
 
     let product =await Product.findById(req.params.id)
     if(product){
         let {file}=req
             image=file
-        console.log(image)
         if(image){
             let upload_image=await cloudinary.uploader.upload(file.path,{public_id:`shop/${new Date().toISOString()}`,tags:"shop"})
         
@@ -155,6 +161,7 @@ router.put('/updateProduct/:id',auth,multer.upload,async (req,res)=>{
             product.category=category,
             product.brand= brand
             product.facts=facts
+            product.featured=featured
             await product.save()
             res.send({message:"Updated Successfully"})
         }}
@@ -190,6 +197,17 @@ router.get('/search_products/:product/:page',async(req,res)=>{
 
     res.send({products,total_results})
 
+
+})
+
+
+
+router.get('/featured_products',async(req,res)=>{
+
+
+    let products= await Product.find({featured:true}).limit(4)
+
+    res.send(products)
 
 })
 

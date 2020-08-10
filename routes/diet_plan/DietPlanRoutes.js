@@ -30,7 +30,6 @@ module.exports = {
         start_date,
         duration,
         owner_id:req.client._id,
-        end_date:moment(start_date).add(duration,'days')
     }
 
 
@@ -47,7 +46,7 @@ module.exports = {
         }
 
         else{
-         diet_plan=await  new DietPlan(data).save()
+         diet_plan=await  new DietPlan({...data, end_date:moment(start_date).add(duration,'days')}).save()
          client.diet_plan=diet_plan._id
          await client.save()
          res.send(await DietPlan.findOne({owner_id:req.client._id}).populate({path:'items'}))
@@ -439,7 +438,7 @@ get_today_report:async (req,res)=>{
 
         start_date= moment()
         start_date.hours(00).minutes(00).seconds(00)
-        console.log(req.client)
+      
         end_date= moment()
         end_date.hours(23).minutes(59).seconds(59)
         if(diet_plan)
@@ -534,7 +533,7 @@ get_complete_report:async (req,res)=>{
         let count = await DietPlanItem.aggregate([
             {$match:
                 {
-                   $and:[{time_to_eat:{$gte:new Date(start_date.toISOString()),$lte: new Date(end_date.toISOString())}},{taken:true}]
+                   $and:[{time_to_eat:{$gte:new Date(start_date.toISOString()),$lte: new Date(end_date.toISOString())}},{taken:true},{plan_id:diet_plan._id}]
                 }},{
             $lookup:{ from: 'foods', localField: 'food', foreignField: '_id', as: 'food' }},
             {$unwind:{path:'$food',
@@ -645,14 +644,15 @@ make_diet_plan_nutritionist:async(req,res)=>{
     }
     ,get_diet_plan_details:async (req,res)=>{
         let {user,client}=req
-        if(user._id){
+     
+        if(user){
 
             let {id}=req.params
             try{
             let diet_plan =await DietPlan.findOne({_id:id,created_by:user._id}).populate('owner_id').populate('created_by')
                 
             if(diet_plan){
-                console.log(diet_plan)
+            
                 res.send(diet_plan)
             
             }
@@ -674,12 +674,12 @@ make_diet_plan_nutritionist:async(req,res)=>{
 
         }
 
-        else if(client._id){
+        else if(client){
 
             let {id}=req.params
             try{
-            let diet_plan =  (await DietPlan.findOne({_id:id,owner_id:client._id})).populate('owner_id').populate('created_by')
-                
+            let diet_plan =  await DietPlan.findOne({owner_id:client._id}).populate('owner_id').populate('created_by')
+               
             if(diet_plan){
 
                 res.send(diet_plan)
@@ -703,7 +703,11 @@ make_diet_plan_nutritionist:async(req,res)=>{
 
         }
        
+        else {
 
+
+            res.status(401).send("Unauthorized...")
+        }
 
     },
 
@@ -768,10 +772,6 @@ get_clients:async (req,res)=>{
 
 
 }
-
-
-
-
 
 
 }

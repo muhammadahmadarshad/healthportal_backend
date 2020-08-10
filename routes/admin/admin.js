@@ -4,6 +4,9 @@ const {AdminValidate,Admin} = require('../../models/Admin/Admin')
 const { pswdReset } = require('../../models/resetPassword')
 const { transporter } = require('../../middlewares/mail')
 const { auth } = require('../../middlewares/auth')
+const moment = require('moment')
+const { Order } = require('../../models/Shop/Orders')
+const { DietPlanOrder } = require('../../models/Diet_Plan/DietPlanOrder')
 
 
 router.post('/make_new_admin',async (req,res)=>{
@@ -165,6 +168,118 @@ router.put('/change_password',auth,async(req,res)=>{
     else {
 
         res.status(401).send("UnAuthorized....")
+    }
+
+
+
+})
+
+
+router.get('/producst_sales',auth,async(req,res)=>{
+
+    let {admin}=req
+
+    if(admin){
+
+        let start_date= moment()
+        start_date.subtract(30,'days')
+        start_date.hours(00)
+        start_date.minutes(00)
+        start_date.seconds(00)
+        let end_date= moment()
+        end_date.subtract(30,'days')
+        end_date.hours(23)
+        end_date.minutes(59)
+        end_date.seconds(59)
+        
+        sales=[]
+        for (let i=0;i<31;i++){
+        sale= await Order.aggregate(   [{
+
+            $match:{
+
+                $and:[{createdAt:{$gte:new Date(start_date.toISOString()),$lte:new Date(end_date.toISOString())}}]   
+            }},
+
+            {
+                $group:{
+                    _id:null,
+                    totalSales:{$sum:"$total"}
+                }
+            },
+            {$unwind:{path:"$group",preserveNullAndEmptyArrays:true}}
+          ])
+          
+        sales.push({amount:sale.length>0?sale[0]['totalSales']:0,
+            date:`${start_date.date()}/${start_date.month()+1}/${start_date.year()}`
+        })
+        
+        start_date.add(1,'days')
+        end_date.add(1,'days')
+        }
+
+          res.send(sales)
+
+    }
+
+
+
+})
+
+
+router.get('/diet_sales',auth,async(req,res)=>{
+
+    let {admin}=req
+
+    if(admin){
+
+        let start_date= moment()
+        start_date.subtract(30,'days')
+        start_date.hours(00)
+        start_date.minutes(00)
+        start_date.seconds(00)
+        let end_date= moment()
+        end_date.subtract(30,'days')
+        end_date.hours(23)
+        end_date.minutes(59)
+        end_date.seconds(59)
+        
+        sales=[]
+        for (let i=0;i<31;i++){
+        sale= await DietPlanOrder.aggregate(   [{
+
+            $match:{
+
+                createdAt:{$gte:new Date(start_date.toISOString()),$lte:new Date(end_date.toISOString())}} 
+            },
+            {$lookup:{
+
+                from:'nutritionists',
+                localField:'nutrtionist',
+                foreignField:'_id',
+                as:'nutrtionist'
+            }},
+         
+            {$unwind:{path:"$nutrtionist",preserveNullAndEmptyArrays:true}},
+            {
+                $group:{
+                    _id:null,
+                    totalSales:{$sum:"$nutrtionist.fee"}
+                }
+            },
+            
+          ])
+          
+        sales.push({amount:sale.length>0?sale[0]['totalSales']:0,
+            date:`${start_date.date()}/${start_date.month()+1}/${start_date.year()}`
+        })
+
+        start_date.add(1,'days')
+        end_date.add(1,'days')
+        }
+
+          res.send(sales)
+
     }
 
 
