@@ -5,7 +5,7 @@ const {make_diet_plan,get_weekly_report,add_meal,
         get_complete_report,
         make_diet_plan_nutritionist,
         get_active_diet_plans,
-        get_diet_plan,get_diet_plan_details, get_clients
+        get_diet_plan,get_diet_plan_details, get_clients, delete_diet_plan
         } =require('../diet_plan/DietPlanRoutes')
 const {auth} = require('../../middlewares/auth')
 
@@ -24,4 +24,7 @@ router.get('/report',auth,get_weekly_report)
 router.get('/today_report',auth,get_today_report)
 router.get('/complete_report',auth,get_complete_report)
 router.get('/clients',auth,get_clients)
+router.delete(
+'/plan_delete/:id',auth,delete_diet_plan
+)
 module.exports= router

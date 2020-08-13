@@ -9,6 +9,6 @@ const resetPass=new mongoose.Schema({
     }
 },{timestamps:true})
 
-resetPass.index({createdAt:1},{expires:50})
+resetPass.index({createdAt:1},{expires:10})
 
 exports.pswdReset=mongoose.model('password',resetPass)

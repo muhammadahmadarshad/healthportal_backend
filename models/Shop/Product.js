@@ -25,7 +25,7 @@ exports.validateProduct= (Product)=>{
 const Schema=joi.object({
 
 
-    name:joi.string().required().min(3).max(20),
+    name:joi.string().required().min(3).max(40),
     price:joi.number().positive().greater(0).required(),
     qty:joi.number().required().greater(0),
     category:joi.string().required(),

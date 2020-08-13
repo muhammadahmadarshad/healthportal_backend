@@ -73,7 +73,7 @@ add_meal:async (req,res)=>{
         time_to_eat= moment(time_to_eat,"YYYY/MM/DD HH:mm").toDate()
     
         let {error} = diet_plan_item_validate({plan_id:diet_plan._id+"",meal,time_to_eat,food},diet_plan.start_date,end_date.toString())
-        console.log(error)
+        
         if(error)
         res.status(400).send(error.details[0])
         else{
@@ -521,6 +521,7 @@ get_complete_report:async (req,res)=>{
 
     if(req.client){
         let diet_plan= await DietPlan.findOne({owner_id:req.client._id})
+        if(diet_plan){
         let start_date=moment(diet_plan.start_date)
             start_date.hours(00).minutes(00)
             
@@ -569,6 +570,14 @@ get_complete_report:async (req,res)=>{
         
         res.send(count_calories)
     }
+
+else{
+
+    res.status(404).send({})
+}
+
+
+}
 
     else 
         res.send({})
@@ -770,6 +779,30 @@ get_clients:async (req,res)=>{
 
 
 
+
+
+},
+delete_diet_plan:async(req,res)=>{
+    if(req.client){
+    try{
+        console.log(req.params.id)
+        let diet= await DietPlan.findOneAndDelete({_id:req.params.id,owner_id:req.client._id})
+        let client= await Client.findById(req.client._id)
+        client.diet_plan=null
+        await client.save()
+        res.send({success:true,msg:'Deleted Successfully..'})
+    }
+    catch(err){
+
+        console.log(err)
+        res.status(400).send({success:false,msg:'Cannot Delete Diet Plan.'})
+    }
+
+
+
+}
+else
+    res.status(401).send('Unauthorized..')
 
 }
 
